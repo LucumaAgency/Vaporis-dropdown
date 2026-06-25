@@ -1,0 +1,5 @@
+# Imágenes de difusores (assets pesados de WordPress, ~50MB)
+Difusores/
+*.png
+# Artefactos de build
+*.zip

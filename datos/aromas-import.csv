@@ -1,0 +1,6 @@
+ID,Tipo,SKU,Nombre,Publicado,Visibilidad en el catálogo,Descripción corta,¿Existencias?,Inventario,Estado del impuesto,Precio normal,Categorías,Imágenes,Superior,Nombre del atributo 1,Valor(es) del atributo 1,Atributo visible 1,Atributo global 1,Atributo predeterminado 1,Meta: notas_de_salida,Meta: _notas_de_salida,Meta: notas_de_corazon,Meta: _notas_de_corazon,Meta: notas_de_fondo,Meta: _notas_de_fondo
+,variable,AR-AURA,Aroma Aura,1,visible,,1,,taxable,,Aromas,https://vaporis.pruebalucuma.site/wp-content/uploads/2026/06/aura.png,,Capacidad,"150 ML, 250 ML, 500 ML, 1 L",1,1,150 ML,"Durazno, pera jugosa",field_6a3739f9978a5,"Magnolia, flor de loto",field_6a373a0b978a6,"Vainilla, almizcle blanco",field_6a373a15978a7
+,variation,AR-AURA-150,Aura 150 ML,1,visible,,1,100,taxable,90.00,Aromas,,AR-AURA,Capacidad,150 ML,1,1,,,,,,,
+,variation,AR-AURA-250,Aura 250 ML,1,visible,,1,100,taxable,125.00,Aromas,,AR-AURA,Capacidad,250 ML,1,1,,,,,,,
+,variation,AR-AURA-500,Aura 500 ML,1,visible,,1,100,taxable,229.00,Aromas,,AR-AURA,Capacidad,500 ML,1,1,,,,,,,
+,variation,AR-AURA-1L,Aura 1 L,1,visible,,1,100,taxable,439.00,Aromas,,AR-AURA,Capacidad,1 L,1,1,,,,,,,

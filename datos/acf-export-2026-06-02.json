@@ -1,0 +1,255 @@
+[
+    {
+        "key": "group_6a1ecd9da0dcd",
+        "title": "Campos Boxes",
+        "fields": [
+            {
+                "key": "field_6a1ecd9ec803e",
+                "label": "Difusor",
+                "name": "difusor",
+                "aria-label": "",
+                "type": "select",
+                "instructions": "",
+                "required": 0,
+                "conditional_logic": 0,
+                "wrapper": {
+                    "width": "",
+                    "class": "",
+                    "id": ""
+                },
+                "choices": {
+                    "ECO": "ECO",
+                    "Mini AD-Scent": "Mini AD-Scent",
+                    "ND-110": "ND-110",
+                    "ND-120": "ND-120",
+                    "ND-140": "ND-140",
+                    "ND-150": "ND-150",
+                    "ND-160": "ND-160",
+                    "ND-300": "ND-300",
+                    "ND-500": "ND-500",
+                    "ND-700": "ND-700",
+                    "ND-800": "ND-800",
+                    "OP-3": "OP-3",
+                    "OP-5": "OP-5",
+                    "OP-7": "OP-7",
+                    "OS-4": "OS-4",
+                    "OS-5": "OS-5",
+                    "OS-6": "OS-6",
+                    "OS-7": "OS-7",
+                    "OV-1": "OV-1",
+                    "OV-3": "OV-3",
+                    "OV-4": "OV-4",
+                    "OV-5": "OV-5",
+                    "OV-6": "OV-6",
+                    "OW-006": "OW-006",
+                    "OW-010": "OW-010",
+                    "OW-020": "OW-020",
+                    "OW-030": "OW-030",
+                    "Pro-300": "Pro-300"
+                },
+                "default_value": false,
+                "return_format": "value",
+                "multiple": 0,
+                "allow_null": 0,
+                "allow_in_bindings": 0,
+                "ui": 0,
+                "ajax": 0,
+                "placeholder": "",
+                "create_options": 0,
+                "save_options": 0
+            },
+            {
+                "key": "field_6a1ecdadc803f",
+                "label": "Color",
+                "name": "color",
+                "aria-label": "",
+                "type": "text",
+                "instructions": "",
+                "required": 0,
+                "conditional_logic": 0,
+                "wrapper": {
+                    "width": "",
+                    "class": "",
+                    "id": ""
+                },
+                "default_value": "",
+                "maxlength": "",
+                "allow_in_bindings": 0,
+                "placeholder": "",
+                "prepend": "",
+                "append": ""
+            },
+            {
+                "key": "field_6a1ecdb7c8040",
+                "label": "Cobertura",
+                "name": "cobertura",
+                "aria-label": "",
+                "type": "text",
+                "instructions": "",
+                "required": 0,
+                "conditional_logic": 0,
+                "wrapper": {
+                    "width": "",
+                    "class": "",
+                    "id": ""
+                },
+                "default_value": "",
+                "maxlength": "",
+                "allow_in_bindings": 0,
+                "placeholder": "",
+                "prepend": "",
+                "append": ""
+            },
+            {
+                "key": "field_6a1ecdbec8041",
+                "label": "Control",
+                "name": "control",
+                "aria-label": "",
+                "type": "select",
+                "instructions": "",
+                "required": 0,
+                "conditional_logic": 0,
+                "wrapper": {
+                    "width": "",
+                    "class": "",
+                    "id": ""
+                },
+                "choices": {
+                    "Bluetooth": "Bluetooth",
+                    "Manual": "Manual",
+                    "Wifi": "Wifi"
+                },
+                "default_value": false,
+                "return_format": "value",
+                "multiple": 0,
+                "allow_null": 0,
+                "allow_in_bindings": 0,
+                "ui": 0,
+                "ajax": 0,
+                "placeholder": "",
+                "create_options": 0,
+                "save_options": 0
+            },
+            {
+                "key": "field_6a1ece1dc8042",
+                "label": "App",
+                "name": "app",
+                "aria-label": "",
+                "type": "select",
+                "instructions": "",
+                "required": 0,
+                "conditional_logic": 0,
+                "wrapper": {
+                    "width": "",
+                    "class": "",
+                    "id": ""
+                },
+                "choices": {
+                    "Aroma-Link": "Aroma-Link",
+                    "Manual": "Manual",
+                    "Scent Marketing": "Scent Marketing"
+                },
+                "default_value": false,
+                "return_format": "value",
+                "multiple": 0,
+                "allow_null": 0,
+                "allow_in_bindings": 0,
+                "ui": 0,
+                "ajax": 0,
+                "placeholder": "",
+                "create_options": 0,
+                "save_options": 0
+            },
+            {
+                "key": "field_6a1ece49c8043",
+                "label": "Capacidad",
+                "name": "capacidad",
+                "aria-label": "",
+                "type": "select",
+                "instructions": "",
+                "required": 0,
+                "conditional_logic": 0,
+                "wrapper": {
+                    "width": "",
+                    "class": "",
+                    "id": ""
+                },
+                "choices": {
+                    "10 mL": "10 mL",
+                    "60 mL": "60 mL",
+                    "100 mL": "100 mL",
+                    "120 mL": "120 mL",
+                    "150 mL": "150 mL",
+                    "200 mL": "200 mL",
+                    "250 mL": "250 mL",
+                    "300 mL": "300 mL",
+                    "400 mL": "400 mL",
+                    "500 mL": "500 mL",
+                    "850 mL": "850 mL",
+                    "1000 mL": "1000 mL",
+                    "5000 mL": "5000 mL"
+                },
+                "default_value": false,
+                "return_format": "value",
+                "multiple": 0,
+                "allow_null": 0,
+                "allow_in_bindings": 0,
+                "ui": 0,
+                "ajax": 0,
+                "placeholder": "",
+                "create_options": 0,
+                "save_options": 0
+            },
+            {
+                "key": "field_6a1eceecc8044",
+                "label": "Cantidad de aroma de regalo",
+                "name": "cantidad_de_aroma_de_regalo",
+                "aria-label": "",
+                "type": "select",
+                "instructions": "",
+                "required": 0,
+                "conditional_logic": 0,
+                "wrapper": {
+                    "width": "",
+                    "class": "",
+                    "id": ""
+                },
+                "choices": {
+                    "150 mL": "150 mL",
+                    "250 mL": "250 mL"
+                },
+                "default_value": false,
+                "return_format": "value",
+                "multiple": 0,
+                "allow_null": 0,
+                "allow_in_bindings": 0,
+                "ui": 0,
+                "ajax": 0,
+                "placeholder": "",
+                "create_options": 0,
+                "save_options": 0
+            }
+        ],
+        "location": [
+            [
+                {
+                    "param": "post_taxonomy",
+                    "operator": "==",
+                    "value": "product_cat:boxes"
+                }
+            ]
+        ],
+        "menu_order": 0,
+        "position": "normal",
+        "style": "default",
+        "label_placement": "top",
+        "instruction_placement": "label",
+        "hide_on_screen": "",
+        "active": true,
+        "description": "",
+        "show_in_rest": 0,
+        "display_title": "",
+        "allow_ai_access": false,
+        "ai_description": ""
+    }
+]
