@@ -1,0 +1,29 @@
+﻿ID,Tipo,SKU,Nombre,Nombre del atributo 1,Valor(es) del atributo 1,Atributo visible 1,Atributo global 1,Nombre del atributo 2,Valor(es) del atributo 2,Atributo visible 2,Atributo global 2
+211,simple,,Box aromático fragancia serena,Tipo de aroma,Solo Scent,1,1,,,,
+252,simple,,Box aromático Brisa interior,Tipo de aroma,Solo Scent,1,1,,,,
+253,simple,,Box aromático Esencia sutil,Tipo de aroma,Solo Scent,1,1,,,,
+254,simple,,Box aromático Armonía interior,Tipo de aroma,Solo Scent,1,1,,,,
+255,simple,,Box aromático Exclusividad sensorial,Tipo de aroma,Solo Scent,1,1,,,,
+256,simple,,Box aromático Distinción sensorial,Color,White,1,1,Tipo de aroma,Solo Scent,1,1
+257,simple,,Box aromático Esencia íntima,Tipo de aroma,Solo Scent,1,1,,,,
+258,simple,,Box aromático Balance,Tipo de aroma,Solo Scent,1,1,,,,
+259,simple,,Box aromático Expansión esencial,Tipo de aroma,Solo Scent,1,1,,,,
+260,simple,,Box aromático Dominio Aromático,Tipo de aroma,Solo Scent,1,1,,,,
+261,simple,,Box aromático Experiencia suprema,Tipo de aroma,Solo Scent,1,1,,,,
+262,simple,,Box aromático Proyección aromática,Tipo de aroma,Solo Scent,1,1,,,,
+263,simple,,Box aromático Magnitud sensorial,Tipo de aroma,Solo Scent,1,1,,,,
+264,simple,,Box aromático Presencia monumental,Tipo de aroma,Solo Scent,1,1,,,,
+265,simple,,Box aromático Alcance supremo,Tipo de aroma,Solo Scent,1,1,,,,
+780,variable,BOX-OV1,Box aromático Drive & Scent,Color,"Black, White, Wood",1,1,Tipo de aroma,Solo Scent,1,1
+781,variable,BOX-ND150,Box aromático Aroma delicado,Color,"Black, White",1,1,Tipo de aroma,Solo Scent,1,1
+782,variable,BOX-OP7,Box aromático Sublime intensidad,Color,"Black, Gold, Silver",1,1,Tipo de aroma,Solo Scent,1,1
+783,variable,BOX-OW006,Box aromático Poder aromático,Color,"Black, White",1,1,Tipo de aroma,Solo Scent,1,1
+796,simple,ND-110,Box aromático Esencia viva,Tipo de aroma,Todos,1,1,,,,
+797,simple,ND-300,Box aromático Aire de serenidad,Tipo de aroma,Todos,1,1,,,,
+798,simple,OV-5,Box aromático Aura de confort,Tipo de aroma,Todos,1,1,,,,
+799,simple,Pro-300,Box aromático Prestige essence,Tipo de aroma,Todos,1,1,,,,
+800,simple,ND-500,Box aromático Armonía sofisticada,Tipo de aroma,Todos,1,1,,,,
+801,simple,OS-5,Box aromático Sensación suprema,Tipo de aroma,Solo Scent,1,1,,,,
+802,simple,OW-010,Box aromático Impacto integral,Tipo de aroma,Solo Scent,1,1,,,,
+803,simple,ECO,Box aromático Eternidad aromática,Tipo de aroma,Solo Scent,1,1,,,,
+804,simple,Mini AD-Scent,Box aromático Impacto exclusivo,Tipo de aroma,Solo Scent,1,1,,,,
