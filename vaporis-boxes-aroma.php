@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma de Regalo
  * Description: Dropdown de aroma de regalo en boxes (línea gratis con control de stock) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.1.0
+ * Version:     1.2.0
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -20,9 +20,30 @@ if ( ! defined('VAPORIS_META_GIFT_SIZE') ) define('VAPORIS_META_GIFT_SIZE', 'can
 /** Taxonomía del atributo global de color de los boxes variables */
 if ( ! defined('VAPORIS_ATTR_COLOR') ) define('VAPORIS_ATTR_COLOR', 'pa_color');
 
+/** Taxonomía del atributo "Tipo de aroma" (familias: Todos / Solo Scent) */
+if ( ! defined('VAPORIS_ATTR_TIPO') ) define('VAPORIS_ATTR_TIPO', 'pa_tipo-aroma');
+
 /** Helper: ¿este producto es un box? */
 function vaporis_es_box($product_id) {
     return has_term(VAPORIS_CAT_BOX, 'product_cat', $product_id);
+}
+
+/** Helper: tipos de aroma (slugs) que admite este box. Vacío = sin restricción. */
+function vaporis_box_tipos($box_id) {
+    $t = wp_get_post_terms($box_id, VAPORIS_ATTR_TIPO, ['fields' => 'slugs']);
+    return is_wp_error($t) ? [] : $t;
+}
+
+/**
+ * Helper: ¿el aroma encaja con el/los tipo(s) que admite el box?
+ * - Si el box no tiene tipo asignado → sin restricción (muestra todos).
+ * - Si lo tiene → el aroma debe compartir al menos un término de tipo.
+ */
+function vaporis_aroma_encaja_tipo($aroma_id, $box_tipos) {
+    if ( empty($box_tipos) ) return true; // box sin tipo: sin filtro extra
+    $a = wp_get_post_terms($aroma_id, VAPORIS_ATTR_TIPO, ['fields' => 'slugs']);
+    if ( is_wp_error($a) || empty($a) ) return false;
+    return (bool) array_intersect($box_tipos, $a);
 }
 
 /** Helper: ¿este ID es un aroma válido (categoría correcta)? */
@@ -115,10 +136,14 @@ function lucia_aroma_gift_dropdown() {
     $aromas = vaporis_get_aromas();
     if ( empty($aromas) ) return;
 
-    // Solo aromas que tengan la variación de ese tamaño y esté en stock.
-    // Guardamos también la nota de fondo (ACF del aroma) para mostrarla al elegir.
+    // Tipo(s) de aroma que admite este box (Todos / Solo Scent). Vacío = todos.
+    $box_tipos = vaporis_box_tipos($product->get_id());
+
+    // Solo aromas que: encajen con el tipo del box, tengan la variación de ese
+    // tamaño y estén en stock. Guardamos la nota de fondo para mostrarla al elegir.
     $options = [];
     foreach ( $aromas as $aroma_id ) {
+        if ( ! vaporis_aroma_encaja_tipo($aroma_id, $box_tipos) ) continue;
         $variation_id = vaporis_find_aroma_variation($aroma_id, $gift_size);
         if ( ! $variation_id ) continue;
         $variation = wc_get_product($variation_id);
@@ -174,6 +199,12 @@ function lucia_validate_aroma_gift($passed, $product_id) {
     $aroma_id = intval($_POST['aroma_gift']);
     if ( ! vaporis_es_aroma($aroma_id) ) {
         wc_add_notice(__('El aroma seleccionado no es válido.', 'vaporis'), 'error');
+        return false;
+    }
+
+    // El aroma debe pertenecer al tipo que admite este box (anti-manipulación).
+    if ( ! vaporis_aroma_encaja_tipo($aroma_id, vaporis_box_tipos($product_id)) ) {
+        wc_add_notice(__('Ese aroma no está disponible para este box.', 'vaporis'), 'error');
         return false;
     }
 
