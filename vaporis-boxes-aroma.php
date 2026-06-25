@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma de Regalo
  * Description: Dropdown de aroma de regalo en boxes (línea gratis con control de stock) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.2.0
+ * Version:     1.2.1
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -21,7 +21,7 @@ if ( ! defined('VAPORIS_META_GIFT_SIZE') ) define('VAPORIS_META_GIFT_SIZE', 'can
 if ( ! defined('VAPORIS_ATTR_COLOR') ) define('VAPORIS_ATTR_COLOR', 'pa_color');
 
 /** Taxonomía del atributo "Tipo de aroma" (familias: Todos / Solo Scent) */
-if ( ! defined('VAPORIS_ATTR_TIPO') ) define('VAPORIS_ATTR_TIPO', 'pa_tipo-aroma');
+if ( ! defined('VAPORIS_ATTR_TIPO') ) define('VAPORIS_ATTR_TIPO', 'pa_tipo-de-aroma');
 
 /** Helper: ¿este producto es un box? */
 function vaporis_es_box($product_id) {
