@@ -11,13 +11,22 @@ Plugin de WooCommerce para la tienda Vaporis. Hace dos cosas:
    `<select>` del atributo de color (`pa_color`) por círculos clicables,
    manteniendo el select oculto para no romper la lógica de variaciones de WC.
 
+El archivo principal del plugin (`vaporis-boxes-aroma.php`) está en la **raíz**
+del repo para que herramientas tipo *Git Deployer* / *Git Updater* lo detecten:
+WordPress solo reconoce plugins en la raíz de su carpeta o un nivel debajo.
+
 ## Instalación
 
-1. Descarga/clona este repo.
-2. Comprime la carpeta `vaporis-boxes-aroma/` en un `.zip`.
-3. En WordPress: *Plugins → Añadir nuevo → Subir plugin* → sube el zip → **Activar**.
-4. Si antes pegaste el código en `functions.php`, **bórralo de ahí** para evitar
-   funciones duplicadas.
+**Opción A · Git Deployer / Git Updater**
+Apunta el deployer a este repo. Clona en `wp-content/plugins/<repo>/` y, al estar
+el `.php` con la cabecera en la raíz, WordPress lo detecta y se puede activar.
+
+**Opción B · Subida manual**
+1. Descarga el repo como ZIP (o clónalo).
+2. En WordPress: *Plugins → Añadir nuevo → Subir plugin* → sube el ZIP → **Activar**.
+
+> Si antes pegaste el código en `functions.php`, **bórralo de ahí** para evitar
+> funciones duplicadas.
 
 ## Cómo funciona el aroma de regalo
 
