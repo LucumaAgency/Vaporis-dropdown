@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma de Regalo
  * Description: Dropdown de aroma de regalo en boxes (línea gratis con control de stock) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.2.1
+ * Version:     1.2.2
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -157,7 +157,7 @@ function lucia_aroma_gift_dropdown() {
 
     echo '<div class="lucia-aroma-gift" style="margin:1rem 0;">';
     echo '<label for="aroma_gift" style="display:block;margin-bottom:.4rem;font-weight:600;">'
-        . esc_html__('Elige tu aroma de regalo', 'vaporis') . '</label>';
+        . esc_html__('Elige tu aroma incluido', 'vaporis') . '</label>';
     echo '<select name="aroma_gift" id="aroma_gift" required style="width:100%;padding:.6rem;">';
     echo '<option value="" data-fondo="">' . esc_html__('— Selecciona un aroma —', 'vaporis') . '</option>';
     foreach ( $options as $aroma_id => $opt ) {
@@ -192,7 +192,7 @@ function lucia_validate_aroma_gift($passed, $product_id) {
     if ( ! vaporis_es_box($product_id) ) return $passed;
 
     if ( empty($_POST['aroma_gift']) ) {
-        wc_add_notice(__('Por favor, elige un aroma de regalo antes de añadir al carrito.', 'vaporis'), 'error');
+        wc_add_notice(__('Por favor, elige un aroma incluido antes de añadir al carrito.', 'vaporis'), 'error');
         return false;
     }
 
@@ -306,7 +306,7 @@ add_filter('woocommerce_cart_item_name', 'vaporis_gift_label', 10, 3);
 function vaporis_gift_label($name, $cart_item, $cart_item_key) {
     if ( ! empty($cart_item['_is_aroma_gift']) ) {
         $name .= ' <span class="aroma-gift-badge" style="color:#c0392b;font-weight:600;">'
-               . esc_html__('🎁 Aroma de regalo', 'vaporis') . '</span>';
+               . esc_html__('Aroma incluido', 'vaporis') . '</span>';
     }
     return $name;
 }
@@ -315,7 +315,7 @@ add_filter('woocommerce_cart_item_price', 'vaporis_gift_price_label', 10, 3);
 add_filter('woocommerce_cart_item_subtotal', 'vaporis_gift_price_label', 10, 3);
 function vaporis_gift_price_label($price, $cart_item, $cart_item_key) {
     if ( ! empty($cart_item['_is_aroma_gift']) ) {
-        return '<span class="aroma-gift-free">' . esc_html__('Gratis', 'vaporis') . '</span>';
+        return '<span class="aroma-gift-free">' . wc_price(0) . '</span>';
     }
     return $price;
 }
@@ -373,7 +373,7 @@ function lucia_display_aroma_in_cart($item_data, $cart_item) {
             $value .= ' (' . $cart_item['aroma_gift_size'] . ')';
         }
         $item_data[] = [
-            'key'   => __('Aroma de regalo', 'vaporis'),
+            'key'   => __('Aroma incluido', 'vaporis'),
             'value' => $value,
         ];
     }
@@ -384,14 +384,14 @@ add_action('woocommerce_checkout_create_order_line_item', 'lucia_save_aroma_to_o
 function lucia_save_aroma_to_order($item, $cart_item_key, $values) {
     // Línea del box: referencia al aroma regalado.
     if ( ! empty($values['aroma_gift_name']) ) {
-        $item->add_meta_data(__('Aroma de regalo', 'vaporis'), $values['aroma_gift_name']);
+        $item->add_meta_data(__('Aroma incluido', 'vaporis'), $values['aroma_gift_name']);
     }
     if ( ! empty($values['aroma_gift']) ) {
         $item->add_meta_data('_aroma_gift_id', intval($values['aroma_gift']), true);
     }
     // Línea del aroma: marcarla como regalo.
     if ( ! empty($values['_is_aroma_gift']) ) {
-        $item->add_meta_data(__('Tipo', 'vaporis'), __('Aroma de regalo (incluido en el box)', 'vaporis'));
+        $item->add_meta_data(__('Tipo', 'vaporis'), __('Aroma incluido en el box', 'vaporis'));
     }
 }
 
