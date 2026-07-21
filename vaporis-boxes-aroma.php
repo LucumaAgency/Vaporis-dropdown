@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Vaporis · Boxes y Aroma de Regalo
- * Description: Dropdown de aroma de regalo en boxes (línea gratis con control de stock) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.2.2
+ * Plugin Name: Vaporis · Boxes y Aroma Incluido
+ * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
+ * Version:     1.3.0
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -14,7 +14,7 @@ if ( ! defined('ABSPATH') ) exit;
 if ( ! defined('VAPORIS_CAT_BOX') )    define('VAPORIS_CAT_BOX', 'boxes');
 if ( ! defined('VAPORIS_CAT_AROMAS') ) define('VAPORIS_CAT_AROMAS', 'aromas');
 
-/** Nombre del meta ACF del box que define el tamaño del aroma de regalo */
+/** Nombre del meta ACF del box que define el tamaño del aroma incluido */
 if ( ! defined('VAPORIS_META_GIFT_SIZE') ) define('VAPORIS_META_GIFT_SIZE', 'cantidad_de_aroma_de_regalo');
 
 /** Taxonomía del atributo global de color de los boxes variables */
@@ -46,6 +46,30 @@ function vaporis_aroma_encaja_tipo($aroma_id, $box_tipos) {
     return (bool) array_intersect($box_tipos, $a);
 }
 
+/** Helper: ¿el box es variable y usa "tipo de aroma" como eje de variación? */
+function vaporis_box_tipo_es_variacion($box_id) {
+    $box = wc_get_product($box_id);
+    if ( ! $box || ! $box->is_type('variable') ) return false;
+    foreach ( array_keys( (array) $box->get_variation_attributes() ) as $akey ) {
+        if ( false !== strpos( strtolower($akey), VAPORIS_ATTR_TIPO ) ) return true;
+    }
+    return false;
+}
+
+/**
+ * Helper: tipo(s) de aroma que exige el box en ESTA operación.
+ * - Box variable con tipo por variación → el término elegido en el POST.
+ * - Box simple → el/los término(s) fijos del box.
+ */
+function vaporis_required_tipos($box_id) {
+    if ( vaporis_box_tipo_es_variacion($box_id) ) {
+        $key = 'attribute_' . VAPORIS_ATTR_TIPO;
+        $sel = isset($_POST[$key]) ? sanitize_title( wp_unslash($_POST[$key]) ) : '';
+        return ( '' !== $sel ) ? [ $sel ] : [];
+    }
+    return vaporis_box_tipos($box_id);
+}
+
 /** Helper: ¿este ID es un aroma válido (categoría correcta)? */
 function vaporis_es_aroma($aroma_id) {
     return $aroma_id && has_term(VAPORIS_CAT_AROMAS, 'product_cat', $aroma_id);
@@ -56,37 +80,53 @@ function vaporis_norm_size($s) {
     return preg_replace('/[^a-z0-9]/', '', strtolower((string) $s));
 }
 
-/** Helper: tamaño de aroma que regala este box (valor del ACF, p. ej. "150 ML") */
+/** Helper: capacidad del aroma incluido de este box (valor del ACF, p. ej. "150 ML") */
 function vaporis_box_gift_size($box_id) {
     $size = get_post_meta($box_id, VAPORIS_META_GIFT_SIZE, true);
     return is_string($size) ? trim($size) : '';
 }
 
 /**
- * Helper: dado un aroma (producto variable) y un tamaño, devuelve el ID de la
- * variación que coincide con ese tamaño, o 0 si no existe.
- * El tamaño lo fija el box internamente; el cliente nunca lo elige.
+ * Helper: dado un aroma (producto variable) y la capacidad que fija el box,
+ * devuelve el ID de la variación que coincide, o 0 si no existe. Si se pasa
+ * $tipo y el aroma también varía por tipo de aroma, exige que case por ambos.
+ * La capacidad (y el tipo) los fija el box/selección; el cliente no elige el mL.
  */
-function vaporis_find_aroma_variation($aroma_id, $size) {
+function vaporis_find_aroma_variation($aroma_id, $size, $tipo = '') {
     $target = vaporis_norm_size($size);
     if ( '' === $target ) return 0;
 
     $aroma = wc_get_product($aroma_id);
     if ( ! $aroma ) return 0;
 
-    // Aroma simple (sin variaciones): si el size encaja con el producto, úsalo tal cual.
+    // Los aromas son variables. Si alguno fuese simple no podemos garantizar la
+    // capacidad, así que no lo ofrecemos (salvaguarda).
     if ( ! $aroma->is_type('variable') ) {
-        return $aroma_id;
+        return 0;
     }
+
+    $tipo_slug = ( '' !== $tipo ) ? sanitize_title($tipo) : '';
 
     foreach ( $aroma->get_children() as $variation_id ) {
         $variation = wc_get_product($variation_id);
         if ( ! $variation ) continue;
-        foreach ( $variation->get_variation_attributes() as $value ) {
-            if ( vaporis_norm_size($value) === $target ) {
-                return $variation_id;
+
+        $attrs   = $variation->get_variation_attributes(); // p.ej. ['attribute_pa_capacidad' => '250-ml', ...]
+        $cap_ok  = false;
+        $tipo_ok = ( '' === $tipo_slug );
+        $tiene_eje_tipo = false;
+
+        foreach ( $attrs as $akey => $aval ) {
+            if ( vaporis_norm_size($aval) === $target ) $cap_ok = true;
+            if ( false !== strpos( strtolower($akey), VAPORIS_ATTR_TIPO ) ) {
+                $tiene_eje_tipo = true;
+                if ( '' !== $tipo_slug && sanitize_title($aval) === $tipo_slug ) $tipo_ok = true;
             }
         }
+        // Si el tipo no es eje de variación de este aroma, no lo exigimos aquí.
+        if ( '' !== $tipo_slug && ! $tiene_eje_tipo ) $tipo_ok = true;
+
+        if ( $cap_ok && $tipo_ok ) return $variation_id;
     }
     return 0;
 }
@@ -122,35 +162,43 @@ function vaporis_clear_aromas_cache() {
 
 
 /* -------------------------------------------------------------------------
- * 1) Dropdown en la ficha del box (solo aromas con stock disponible)
+ * 1) Dropdown en la ficha del box (aromas con capacidad correcta y stock)
+ *    Filtro por tipo de aroma: fijo (box simple) en servidor; o dinámico según
+ *    la variación de tipo del box (JS) cuando el cliente lo elige.
  * ---------------------------------------------------------------------- */
 add_action('woocommerce_before_add_to_cart_button', 'lucia_aroma_gift_dropdown');
 function lucia_aroma_gift_dropdown() {
     global $product;
     if ( ! $product || ! vaporis_es_box($product->get_id()) ) return;
 
-    // Tamaño del aroma de regalo: lo decide el box internamente, no el cliente.
-    $gift_size = vaporis_box_gift_size($product->get_id());
-    if ( '' === $gift_size ) return; // box sin tamaño configurado: no mostramos dropdown
+    $box_id = $product->get_id();
+
+    // Capacidad del aroma incluido: la decide el box (ACF), no el cliente.
+    $gift_size = vaporis_box_gift_size($box_id);
+    if ( '' === $gift_size ) return; // box sin capacidad configurada: no mostramos dropdown
 
     $aromas = vaporis_get_aromas();
     if ( empty($aromas) ) return;
 
-    // Tipo(s) de aroma que admite este box (Todos / Solo Scent). Vacío = todos.
-    $box_tipos = vaporis_box_tipos($product->get_id());
+    // ¿El tipo de aroma lo elige el cliente en la variación del box?
+    $tipo_por_variacion = vaporis_box_tipo_es_variacion($box_id);
+    // Filtro por tipo en servidor solo cuando es fijo (box simple).
+    $box_tipos = $tipo_por_variacion ? [] : vaporis_box_tipos($box_id);
 
-    // Solo aromas que: encajen con el tipo del box, tengan la variación de ese
-    // tamaño y estén en stock. Guardamos la nota de fondo para mostrarla al elegir.
+    // Aromas con la capacidad del box y en stock. data-tipo permite el filtro JS.
     $options = [];
     foreach ( $aromas as $aroma_id ) {
-        if ( ! vaporis_aroma_encaja_tipo($aroma_id, $box_tipos) ) continue;
+        if ( ! $tipo_por_variacion && ! vaporis_aroma_encaja_tipo($aroma_id, $box_tipos) ) continue;
         $variation_id = vaporis_find_aroma_variation($aroma_id, $gift_size);
         if ( ! $variation_id ) continue;
         $variation = wc_get_product($variation_id);
         if ( ! $variation || ! $variation->is_in_stock() ) continue;
+
+        $tipos = wp_get_post_terms($aroma_id, VAPORIS_ATTR_TIPO, ['fields' => 'slugs']);
         $options[$aroma_id] = [
             'name'  => get_the_title($aroma_id),
             'fondo' => get_post_meta($aroma_id, 'notas_de_fondo', true),
+            'tipo'  => is_wp_error($tipos) ? '' : implode(' ', $tipos),
         ];
     }
     if ( empty($options) ) return;
@@ -159,9 +207,9 @@ function lucia_aroma_gift_dropdown() {
     echo '<label for="aroma_gift" style="display:block;margin-bottom:.4rem;font-weight:600;">'
         . esc_html__('Elige tu aroma incluido', 'vaporis') . '</label>';
     echo '<select name="aroma_gift" id="aroma_gift" required style="width:100%;padding:.6rem;">';
-    echo '<option value="" data-fondo="">' . esc_html__('— Selecciona un aroma —', 'vaporis') . '</option>';
+    echo '<option value="" data-fondo="" data-tipo="">' . esc_html__('— Selecciona un aroma —', 'vaporis') . '</option>';
     foreach ( $options as $aroma_id => $opt ) {
-        echo '<option value="' . esc_attr($aroma_id) . '" data-fondo="' . esc_attr($opt['fondo']) . '">'
+        echo '<option value="' . esc_attr($aroma_id) . '" data-fondo="' . esc_attr($opt['fondo']) . '" data-tipo="' . esc_attr($opt['tipo']) . '">'
             . esc_html($opt['name']) . '</option>';
     }
     echo '</select>';
@@ -169,17 +217,30 @@ function lucia_aroma_gift_dropdown() {
     echo '<p class="lucia-aroma-fondo" style="margin:.5rem 0 0;font-size:.9em;color:#555;display:none;"></p>';
     echo '</div>';
 
-    // JS: al cambiar el select, muestra la nota de fondo del aroma seleccionado.
+    // JS: nota de fondo al elegir + filtrado por el tipo de aroma de la variación del box.
+    $tipo_attr = 'attribute_' . VAPORIS_ATTR_TIPO;
     echo "<script>(function(){
-        var s=document.getElementById('aroma_gift');
-        if(!s) return;
-        var box=document.querySelector('.lucia-aroma-fondo');
-        var label=" . wp_json_encode(__('Notas de fondo:', 'vaporis')) . ";
-        s.addEventListener('change',function(){
-            var f=s.options[s.selectedIndex].getAttribute('data-fondo')||'';
-            if(f){ box.innerHTML='<strong>'+label+'</strong> '+f; box.style.display='block'; }
-            else { box.style.display='none'; box.textContent=''; }
-        });
+        var s=document.getElementById('aroma_gift'); if(!s) return;
+        var fondoBox=document.querySelector('.lucia-aroma-fondo');
+        var fondoLabel=" . wp_json_encode(__('Notas de fondo:', 'vaporis')) . ";
+        function showFondo(){
+            var o=s.options[s.selectedIndex], f=o?o.getAttribute('data-fondo'):'';
+            if(f){ fondoBox.innerHTML='<strong>'+fondoLabel+'</strong> '+f; fondoBox.style.display='block'; }
+            else { fondoBox.style.display='none'; fondoBox.textContent=''; }
+        }
+        s.addEventListener('change', showFondo);
+        var tipoSel=document.querySelector('select[name=\"" . esc_js($tipo_attr) . "\"]');
+        function filtrar(){
+            var sel=tipoSel ? String(tipoSel.value||'').toLowerCase() : '';
+            for(var i=0;i<s.options.length;i++){
+                var o=s.options[i]; if(o.value==='') continue;
+                var tipos=(o.getAttribute('data-tipo')||'').toLowerCase().split(' ');
+                var ok = sel==='' ? true : tipos.indexOf(sel)!==-1;
+                o.hidden=!ok; o.disabled=!ok;
+            }
+            if(s.selectedIndex>0 && s.options[s.selectedIndex].hidden){ s.value=''; showFondo(); }
+        }
+        if(tipoSel){ tipoSel.addEventListener('change', filtrar); filtrar(); }
     })();</script>";
 }
 
@@ -202,17 +263,19 @@ function lucia_validate_aroma_gift($passed, $product_id) {
         return false;
     }
 
-    // El aroma debe pertenecer al tipo que admite este box (anti-manipulación).
-    if ( ! vaporis_aroma_encaja_tipo($aroma_id, vaporis_box_tipos($product_id)) ) {
+    // El aroma debe pertenecer al tipo que exige este box (fijo o el elegido en la variación).
+    $req_tipos = vaporis_required_tipos($product_id);
+    if ( ! vaporis_aroma_encaja_tipo($aroma_id, $req_tipos) ) {
         wc_add_notice(__('Ese aroma no está disponible para este box.', 'vaporis'), 'error');
         return false;
     }
 
-    // El tamaño lo fija el box; debe existir esa variación del aroma.
+    // La capacidad la fija el box; debe existir esa variación del aroma (capacidad + tipo).
+    $gift_tipo    = $req_tipos ? reset($req_tipos) : '';
     $gift_size    = vaporis_box_gift_size($product_id);
-    $variation_id = vaporis_find_aroma_variation($aroma_id, $gift_size);
+    $variation_id = vaporis_find_aroma_variation($aroma_id, $gift_size, $gift_tipo);
     if ( ! $variation_id ) {
-        wc_add_notice(__('Ese aroma no está disponible en el tamaño de regalo de este box.', 'vaporis'), 'error');
+        wc_add_notice(__('Ese aroma no está disponible en la capacidad incluida de este box.', 'vaporis'), 'error');
         return false;
     }
 
@@ -231,16 +294,18 @@ function lucia_validate_aroma_gift($passed, $product_id) {
  * ---------------------------------------------------------------------- */
 add_filter('woocommerce_add_cart_item_data', 'lucia_add_aroma_to_cart_item', 10, 2);
 function lucia_add_aroma_to_cart_item($cart_item_data, $product_id) {
-    // Solo boxes; nunca tocar la propia línea de regalo que añadimos luego.
+    // Solo boxes; nunca tocar la propia línea del aroma incluido que añadimos luego.
     if ( ! vaporis_es_box($product_id) ) return $cart_item_data;
     if ( empty($_POST['aroma_gift']) ) return $cart_item_data;
 
     $aroma_id = intval($_POST['aroma_gift']);
     if ( ! vaporis_es_aroma($aroma_id) ) return $cart_item_data; // no confiar en el cliente
 
+    $req_tipos = vaporis_required_tipos($product_id);
     $cart_item_data['aroma_gift']      = $aroma_id;
     $cart_item_data['aroma_gift_name'] = get_the_title($aroma_id);
-    $cart_item_data['aroma_gift_size'] = vaporis_box_gift_size($product_id); // tamaño fijado por el box
+    $cart_item_data['aroma_gift_size'] = vaporis_box_gift_size($product_id);      // capacidad fijada por el box
+    $cart_item_data['aroma_gift_tipo'] = $req_tipos ? reset($req_tipos) : '';     // tipo (fijo o elegido en la variación)
     $cart_item_data['unique_key']      = md5(microtime(true) . $aroma_id); // evita agrupar boxes con aromas distintos
 
     return $cart_item_data;
@@ -258,10 +323,11 @@ function vaporis_add_aroma_gift_line($cart_item_key, $product_id, $quantity, $va
     $aroma_id = intval($cart_item_data['aroma_gift']);
     if ( ! vaporis_es_aroma($aroma_id) ) return;
 
-    // Resolver la VARIACIÓN del tamaño que regala este box (no el cliente).
+    // Resolver la VARIACIÓN por capacidad (y tipo) que incluye este box (no el cliente).
     $gift_size    = isset($cart_item_data['aroma_gift_size']) ? $cart_item_data['aroma_gift_size'] : vaporis_box_gift_size($product_id);
-    $variation_id = vaporis_find_aroma_variation($aroma_id, $gift_size);
-    if ( ! $variation_id ) return; // sin variación válida no añadimos regalo
+    $gift_tipo    = isset($cart_item_data['aroma_gift_tipo']) ? $cart_item_data['aroma_gift_tipo'] : '';
+    $variation_id = vaporis_find_aroma_variation($aroma_id, $gift_size, $gift_tipo);
+    if ( ! $variation_id ) return; // sin variación válida no añadimos el aroma
 
     // Si el aroma es variable, pasamos sus atributos de variación a add_to_cart.
     $variation = wc_get_product($variation_id);
@@ -284,7 +350,7 @@ function vaporis_add_aroma_gift_line($cart_item_key, $product_id, $quantity, $va
 
 
 /* -------------------------------------------------------------------------
- * 5) Precio 0 para la línea de regalo
+ * 5) Precio 0 para la línea del aroma incluido
  * ---------------------------------------------------------------------- */
 add_action('woocommerce_before_calculate_totals', 'vaporis_zero_gift_price', 20, 1);
 function vaporis_zero_gift_price($cart) {
@@ -300,7 +366,7 @@ function vaporis_zero_gift_price($cart) {
 
 
 /* -------------------------------------------------------------------------
- * 6) UI del carrito: etiqueta "regalo", precio "Gratis", cantidad fija, sin quitar
+ * 6) UI del carrito: etiqueta "incluido", precio 0.00, cantidad = la del box, sin quitar
  * ---------------------------------------------------------------------- */
 add_filter('woocommerce_cart_item_name', 'vaporis_gift_label', 10, 3);
 function vaporis_gift_label($name, $cart_item, $cart_item_key) {
@@ -323,7 +389,10 @@ function vaporis_gift_price_label($price, $cart_item, $cart_item_key) {
 add_filter('woocommerce_cart_item_quantity', 'vaporis_lock_gift_qty', 10, 3);
 function vaporis_lock_gift_qty($html, $cart_item_key, $cart_item) {
     if ( ! empty($cart_item['_is_aroma_gift']) ) {
-        return '1 <input type="hidden" name="cart[' . esc_attr($cart_item_key) . '][qty]" value="1" />';
+        // Cantidad de solo lectura: sigue a su box (1 aroma por box). Sin input
+        // editable para que "Actualizar carrito" no la altere; la reconciliación manda.
+        $qty = isset($cart_item['quantity']) ? intval($cart_item['quantity']) : 1;
+        return '<span class="aroma-gift-qty">' . esc_html($qty) . '</span>';
     }
     return $html;
 }
@@ -332,14 +401,14 @@ add_filter('woocommerce_cart_item_remove_link', 'vaporis_hide_gift_remove', 10, 
 function vaporis_hide_gift_remove($link, $cart_item_key) {
     $cart = WC()->cart ? WC()->cart->get_cart() : [];
     if ( ! empty($cart[$cart_item_key]['_is_aroma_gift']) ) {
-        return ''; // la línea de regalo no se quita por sí sola
+        return ''; // la línea del aroma incluido no se quita por sí sola
     }
     return $link;
 }
 
 
 /* -------------------------------------------------------------------------
- * 7) Sincronizar el regalo con su box (cantidad y eliminación)
+ * 7) Sincronizar el aroma incluido con su box (cantidad y eliminación)
  * ---------------------------------------------------------------------- */
 add_action('woocommerce_after_cart_item_quantity_update', 'vaporis_sync_gift_qty', 10, 4);
 function vaporis_sync_gift_qty($cart_item_key, $quantity, $old_quantity, $cart) {
@@ -359,11 +428,40 @@ function vaporis_remove_linked_gift($cart_item_key, $cart) {
     }
 }
 
+/**
+ * Reconciliación autoritativa: cada aroma incluido iguala la cantidad de su box
+ * (1 aroma por box). Cubre cualquier vía de cambio (carrito, mini-cart, etc.).
+ */
+add_action('woocommerce_cart_updated', 'vaporis_reconcile_gift_qty');
+function vaporis_reconcile_gift_qty() {
+    $cart = ( function_exists('WC') && WC()->cart ) ? WC()->cart : null;
+    if ( ! $cart ) return;
+
+    static $running = false;
+    if ( $running ) return; // evita reentradas
+    $running = true;
+
+    foreach ( $cart->get_cart() as $key => $item ) {
+        if ( empty($item['_gift_for']) ) continue;
+        $box = $cart->get_cart_item($item['_gift_for']);
+        if ( ! $box ) {                       // box eliminado → quitar su aroma
+            $cart->remove_cart_item($key);
+            continue;
+        }
+        $box_qty = intval($box['quantity']);
+        if ( intval($item['quantity']) !== $box_qty ) {
+            $cart->set_quantity($key, $box_qty, false);
+        }
+    }
+
+    $running = false;
+}
+
 
 /* -------------------------------------------------------------------------
  * 8) Metadatos de trazabilidad
  *    - En la línea del box: qué aroma se regaló (visible) + ID (oculto).
- *    - En la línea del aroma: marcarla como regalo en el pedido.
+ *    - En la línea del aroma: marcarla como aroma incluido en el pedido.
  * ---------------------------------------------------------------------- */
 add_filter('woocommerce_get_item_data', 'lucia_display_aroma_in_cart', 10, 2);
 function lucia_display_aroma_in_cart($item_data, $cart_item) {
@@ -389,7 +487,7 @@ function lucia_save_aroma_to_order($item, $cart_item_key, $values) {
     if ( ! empty($values['aroma_gift']) ) {
         $item->add_meta_data('_aroma_gift_id', intval($values['aroma_gift']), true);
     }
-    // Línea del aroma: marcarla como regalo.
+    // Línea del aroma: marcarla como aroma incluido.
     if ( ! empty($values['_is_aroma_gift']) ) {
         $item->add_meta_data(__('Tipo', 'vaporis'), __('Aroma incluido en el box', 'vaporis'));
     }
