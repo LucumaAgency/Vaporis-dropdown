@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.4.1
+ * Version:     1.4.2
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -655,4 +655,24 @@ function vaporis_swatches_assets() {
       . '});'
       . '});'
     );
+}
+
+
+/* -------------------------------------------------------------------------
+ * 12) [TEMPORAL · PRUEBA DE VELOCIDAD] Desactiva el refresco AJAX del mini-carrito
+ *     (?wc-ajax=get_refreshed_fragments), que es lo que tarda ~8s al añadir.
+ *     Para MEDIR: si con esto el "añadir" es instantáneo, el costo estaba en
+ *     re-renderizar el mini-carrito (header Bricks); si sigue lento, es backend
+ *     (BD / object cache / hosting). Trade-off: el contador del ícono del carrito
+ *     NO se actualiza solo hasta recargar la página.
+ *     Reactivar sin re-desplegar: en wp-config.php →
+ *         define('VAPORIS_DISABLE_CART_FRAGMENTS', false);
+ *     QUITAR este bloque cuando terminemos el diagnóstico.
+ * ---------------------------------------------------------------------- */
+if ( ! defined('VAPORIS_DISABLE_CART_FRAGMENTS') ) define('VAPORIS_DISABLE_CART_FRAGMENTS', true);
+add_action('wp_enqueue_scripts', 'vaporis_maybe_disable_cart_fragments', 11);
+function vaporis_maybe_disable_cart_fragments() {
+    if ( VAPORIS_DISABLE_CART_FRAGMENTS ) {
+        wp_dequeue_script('wc-cart-fragments');
+    }
 }
