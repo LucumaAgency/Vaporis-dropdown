@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.4.0
+ * Version:     1.4.1
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -313,39 +313,34 @@ function lucia_add_aroma_to_cart_item($cart_item_data, $product_id) {
 
 
 /* -------------------------------------------------------------------------
- * 4) Añadir el aroma como LÍNEA DE PRODUCTO REAL (gratis) vinculada al box
+ * 4) Línea del aroma incluido (precio 0) vinculada al box.
+ *    OJO: NO se crea dentro de woocommerce_add_to_cart. Ahí, al añadir el PRIMER
+ *    box del carrito, la sesión aún no está lista y el add_to_cart anidado se
+ *    perdía (síntoma: el 1er box salía sin su aroma, el 2º sí). Se crea en la
+ *    reconciliación (sección 7) al cargar el carrito, en un request limpio.
  * ---------------------------------------------------------------------- */
-add_action('woocommerce_add_to_cart', 'vaporis_add_aroma_incluido_line', 10, 6);
-function vaporis_add_aroma_incluido_line($cart_item_key, $product_id, $quantity, $variation_id, $variation, $cart_item_data) {
-    if ( empty($cart_item_data['aroma_incluido']) ) return;        // el box no trae aroma
-    if ( ! empty($cart_item_data['_is_aroma_incluido']) ) return;  // guard anti-recursión
-
-    $aroma_id = intval($cart_item_data['aroma_incluido']);
+function vaporis_add_incluido_line_for_box($cart, $box_key, $box_item, $qty) {
+    $aroma_id = intval($box_item['aroma_incluido']);
     if ( ! vaporis_es_aroma($aroma_id) ) return;
 
-    // Resolver la VARIACIÓN por capacidad (y tipo) que incluye este box (no el cliente).
-    $incluido_size    = isset($cart_item_data['aroma_incluido_size']) ? $cart_item_data['aroma_incluido_size'] : vaporis_box_incluido_size($product_id);
-    $incluido_tipo    = isset($cart_item_data['aroma_incluido_tipo']) ? $cart_item_data['aroma_incluido_tipo'] : '';
-    $variation_id = vaporis_find_aroma_variation($aroma_id, $incluido_size, $incluido_tipo);
-    if ( ! $variation_id ) return; // sin variación válida no añadimos el aroma
+    // Resolver la VARIACIÓN por capacidad (y tipo) que incluye este box.
+    $incluido_size = isset($box_item['aroma_incluido_size']) ? $box_item['aroma_incluido_size'] : '';
+    $incluido_tipo = isset($box_item['aroma_incluido_tipo']) ? $box_item['aroma_incluido_tipo'] : '';
+    $variation_id  = vaporis_find_aroma_variation($aroma_id, $incluido_size, $incluido_tipo);
+    if ( ! $variation_id ) return;
 
-    // Si el aroma es variable, pasamos sus atributos de variación a add_to_cart.
     $variation = wc_get_product($variation_id);
     $var_attrs = ( $variation && $variation->is_type('variation') ) ? $variation->get_variation_attributes() : [];
     $parent_id = ( $variation && $variation->is_type('variation') ) ? $variation->get_parent_id() : $aroma_id;
     $real_variation_id = ( $variation_id !== $aroma_id ) ? $variation_id : 0;
 
-    // Evitar recursión: añadir el aroma no debe volver a disparar este hook.
-    remove_action('woocommerce_add_to_cart', 'vaporis_add_aroma_incluido_line', 10);
-
-    WC()->cart->add_to_cart($parent_id, $quantity, $real_variation_id, $var_attrs, [
-        '_is_aroma_incluido' => true,
-        '_incluido_for'      => $cart_item_key, // vínculo con la línea del box
-        'aroma_incluido_size'=> $incluido_size,
-        'unique_key'     => md5('incluido' . microtime(true) . $aroma_id),
+    $cart->add_to_cart($parent_id, max(1, intval($qty)), $real_variation_id, $var_attrs, [
+        '_is_aroma_incluido'  => true,
+        '_incluido_for'       => $box_key,          // vínculo con la línea del box
+        'aroma_incluido_size' => $incluido_size,
+        // clave determinista: si se intentara crear dos veces, WC agrupa, no duplica.
+        'unique_key'          => md5('incluido' . $box_key . $aroma_id),
     ]);
-
-    add_action('woocommerce_add_to_cart', 'vaporis_add_aroma_incluido_line', 10, 6);
 }
 
 
@@ -408,49 +403,58 @@ function vaporis_hide_incluido_remove($link, $cart_item_key) {
 
 
 /* -------------------------------------------------------------------------
- * 7) Sincronizar el aroma incluido con su box (cantidad y eliminación)
+ * 7) Reconciliación: cada box con aroma elegido tiene EXACTAMENTE una línea de
+ *    aroma incluido, con su misma cantidad (1 aroma por box). Fuente de verdad.
+ *    - Al CARGAR el carrito (cada request, sesión ya lista): crea las líneas que
+ *      falten → arregla el bug del "primer box sin aroma".
+ *    - Al ACTUALIZAR el carrito: solo sincroniza cantidades y quita huérfanos
+ *      (no crea, para no volver a caer en el problema de sesión durante el add).
  * ---------------------------------------------------------------------- */
-add_action('woocommerce_after_cart_item_quantity_update', 'vaporis_sync_incluido_qty', 10, 4);
-function vaporis_sync_incluido_qty($cart_item_key, $quantity, $old_quantity, $cart) {
-    foreach ( $cart->get_cart() as $key => $item ) {
-        if ( ! empty($item['_incluido_for']) && $item['_incluido_for'] === $cart_item_key ) {
-            $cart->set_quantity($key, $quantity, false);
-        }
-    }
-}
+add_action('woocommerce_cart_loaded_from_session', 'vaporis_reconcile_incluido_full', 20);
+function vaporis_reconcile_incluido_full($cart) { vaporis_reconcile_incluido($cart, true); }
 
-add_action('woocommerce_remove_cart_item', 'vaporis_remove_linked_incluido', 10, 2);
-function vaporis_remove_linked_incluido($cart_item_key, $cart) {
-    foreach ( $cart->get_cart() as $key => $item ) {
-        if ( ! empty($item['_incluido_for']) && $item['_incluido_for'] === $cart_item_key ) {
-            $cart->remove_cart_item($key);
-        }
-    }
-}
+add_action('woocommerce_cart_updated', 'vaporis_reconcile_incluido_sync', 20);
+function vaporis_reconcile_incluido_sync() { vaporis_reconcile_incluido(null, false); }
 
-/**
- * Reconciliación autoritativa: cada aroma incluido iguala la cantidad de su box
- * (1 aroma por box). Cubre cualquier vía de cambio (carrito, mini-cart, etc.).
- */
-add_action('woocommerce_cart_updated', 'vaporis_reconcile_incluido_qty');
-function vaporis_reconcile_incluido_qty() {
-    $cart = ( function_exists('WC') && WC()->cart ) ? WC()->cart : null;
+function vaporis_reconcile_incluido($cart, $allow_create) {
+    if ( ! ( $cart instanceof WC_Cart ) ) {
+        $cart = ( function_exists('WC') && WC()->cart ) ? WC()->cart : null;
+    }
     if ( ! $cart ) return;
 
     static $running = false;
     if ( $running ) return; // evita reentradas
     $running = true;
 
+    // 1) Quitar aromas huérfanos (su box ya no está en el carrito).
     foreach ( $cart->get_cart() as $key => $item ) {
-        if ( empty($item['_incluido_for']) ) continue;
-        $box = $cart->get_cart_item($item['_incluido_for']);
-        if ( ! $box ) {                       // box eliminado → quitar su aroma
-            $cart->remove_cart_item($key);
-            continue;
+        if ( ! empty($item['_is_aroma_incluido']) && ! empty($item['_incluido_for']) ) {
+            if ( ! $cart->get_cart_item($item['_incluido_for']) ) {
+                $cart->remove_cart_item($key);
+            }
         }
-        $box_qty = intval($box['quantity']);
-        if ( intval($item['quantity']) !== $box_qty ) {
-            $cart->set_quantity($key, $box_qty, false);
+    }
+
+    // 2) Cada box con aroma elegido: crear su línea si falta (solo si se permite)
+    //    o igualar su cantidad a la del box.
+    foreach ( $cart->get_cart() as $box_key => $box ) {
+        if ( empty($box['aroma_incluido']) || ! empty($box['_is_aroma_incluido']) ) continue;
+
+        $box_qty      = intval($box['quantity']);
+        $incluido_key = null;
+        foreach ( $cart->get_cart() as $k => $it ) {
+            if ( ! empty($it['_incluido_for']) && $it['_incluido_for'] === $box_key ) { $incluido_key = $k; break; }
+        }
+
+        if ( null === $incluido_key ) {
+            if ( $allow_create ) {
+                vaporis_add_incluido_line_for_box($cart, $box_key, $box, $box_qty);
+            }
+        } else {
+            $linea = $cart->get_cart_item($incluido_key);
+            if ( $linea && intval($linea['quantity']) !== $box_qty ) {
+                $cart->set_quantity($incluido_key, $box_qty, false);
+            }
         }
     }
 
