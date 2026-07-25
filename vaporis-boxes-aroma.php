@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.5.0
+ * Version:     1.6.0
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -694,5 +694,47 @@ add_action('wp_enqueue_scripts', 'vaporis_maybe_disable_cart_fragments', 11);
 function vaporis_maybe_disable_cart_fragments() {
     if ( VAPORIS_DISABLE_CART_FRAGMENTS ) {
         wp_dequeue_script('wc-cart-fragments');
+    }
+}
+
+
+/* -------------------------------------------------------------------------
+ * 13) [RENDIMIENTO] Quitar el bundle de WooCommerce Blocks (React ~1MB) FUERA de
+ *     carrito/checkout. La tienda usa carrito/checkout CLÁSICOS (plantillas Bricks),
+ *     así que ese bundle no se necesita en la ficha de producto ni en el resto del
+ *     sitio, y era lo que más pesaba en el "añadir al carrito".
+ *     - Solo quita handles de bloques (wc-blocks*, wc-cart-checkout*, *-block*);
+ *       NO toca wc-cart-fragments ni scripts clásicos.
+ *     - Al quitar los scripts de bloques, sus dependencias (react-dom, wp-*, etc.)
+ *       dejan de imprimirse solas si nada más las usa.
+ *     Apagar sin re-desplegar: en wp-config.php →
+ *         define('VAPORIS_STRIP_WC_BLOCKS', false);
+ * ---------------------------------------------------------------------- */
+if ( ! defined('VAPORIS_STRIP_WC_BLOCKS') ) define('VAPORIS_STRIP_WC_BLOCKS', true);
+add_action('wp_enqueue_scripts', 'vaporis_strip_wc_blocks_assets', 100);
+function vaporis_strip_wc_blocks_assets() {
+    if ( ! VAPORIS_STRIP_WC_BLOCKS || is_admin() ) return;
+
+    // No tocar carrito/checkout/mi-cuenta (por si allí sí se necesitan).
+    if ( ( function_exists('is_cart')         && is_cart() )
+      || ( function_exists('is_checkout')     && is_checkout() )
+      || ( function_exists('is_account_page') && is_account_page() ) ) {
+        return;
+    }
+
+    // ¿El handle pertenece al bundle de bloques de WooCommerce? (no clásicos)
+    $es_bloque = function ( $handle ) {
+        $h = strtolower( (string) $handle );
+        return ( 0 === strpos($h, 'wc-blocks')          // wc-blocks-*, data, registry, middleware, style…
+              || 0 === strpos($h, 'wc-cart-checkout')    // wc-cart-checkout-base/vendors-frontend
+              || 0 === strpos($h, 'wc-cart-block')
+              || 0 === strpos($h, 'wc-checkout-block') );
+    };
+
+    foreach ( (array) wp_scripts()->queue as $handle ) {
+        if ( $es_bloque($handle) ) wp_dequeue_script($handle);
+    }
+    foreach ( (array) wp_styles()->queue as $handle ) {
+        if ( $es_bloque($handle) ) wp_dequeue_style($handle);
     }
 }
