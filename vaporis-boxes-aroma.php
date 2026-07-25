@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.4.2
+ * Version:     1.5.0
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -87,46 +87,65 @@ function vaporis_box_incluido_size($box_id) {
 }
 
 /**
- * Helper: dado un aroma (producto variable) y la capacidad que fija el box,
- * devuelve el ID de la variación que coincide, o 0 si no existe. Si se pasa
- * $tipo y el aroma también varía por tipo de aroma, exige que case por ambos.
- * La capacidad (y el tipo) los fija el box/selección; el cliente no elige el mL.
+ * Helper: mapa CACHEADO aroma → variaciones, para no cargar TODAS las variaciones
+ * de TODOS los aromas en cada visita a la ficha del box (era el gran costo por
+ * request). Se persiste en el object cache (Redis) y se invalida al guardar/borrar
+ * productos. Se reconstruye una sola vez tras cada cambio.
+ * Estructura: [ aroma_id => [ ['id'=>vid, 'norms'=>[...], 'tipo'=>slug, 'eje_tipo'=>bool], ... ] ]
+ */
+function vaporis_variation_map() {
+    $map = get_transient('vaporis_variation_map');
+    if ( false !== $map ) return $map;
+
+    $map = [];
+    foreach ( vaporis_get_aromas() as $aroma_id ) {
+        $aroma = wc_get_product($aroma_id);
+        if ( ! $aroma || ! $aroma->is_type('variable') ) continue; // aromas son variables
+
+        $vars = [];
+        foreach ( $aroma->get_children() as $variation_id ) {
+            $variation = wc_get_product($variation_id);
+            if ( ! $variation ) continue;
+
+            $norms    = [];
+            $vtipo    = '';
+            $eje_tipo = false;
+            foreach ( $variation->get_variation_attributes() as $akey => $aval ) {
+                $norms[] = vaporis_norm_size($aval);                       // para casar capacidad
+                if ( false !== strpos( strtolower($akey), VAPORIS_ATTR_TIPO ) ) {
+                    $eje_tipo = true;
+                    $vtipo    = sanitize_title($aval);
+                }
+            }
+            $vars[] = [ 'id' => (int) $variation_id, 'norms' => $norms, 'tipo' => $vtipo, 'eje_tipo' => $eje_tipo ];
+        }
+        $map[ (int) $aroma_id ] = $vars;
+    }
+
+    set_transient('vaporis_variation_map', $map, DAY_IN_SECONDS);
+    return $map;
+}
+
+/**
+ * Helper: dado un aroma y la capacidad (y opcionalmente el tipo) que fija el box,
+ * devuelve el ID de la variación que coincide, o 0. Usa el mapa cacheado: NO carga
+ * productos, solo lee del cache.
  */
 function vaporis_find_aroma_variation($aroma_id, $size, $tipo = '') {
     $target = vaporis_norm_size($size);
     if ( '' === $target ) return 0;
 
-    $aroma = wc_get_product($aroma_id);
-    if ( ! $aroma ) return 0;
-
-    // Los aromas son variables. Si alguno fuese simple no podemos garantizar la
-    // capacidad, así que no lo ofrecemos (salvaguarda).
-    if ( ! $aroma->is_type('variable') ) {
-        return 0;
-    }
+    $map      = vaporis_variation_map();
+    $aroma_id = (int) $aroma_id;
+    if ( empty($map[$aroma_id]) ) return 0;
 
     $tipo_slug = ( '' !== $tipo ) ? sanitize_title($tipo) : '';
 
-    foreach ( $aroma->get_children() as $variation_id ) {
-        $variation = wc_get_product($variation_id);
-        if ( ! $variation ) continue;
-
-        $attrs   = $variation->get_variation_attributes(); // p.ej. ['attribute_pa_capacidad' => '250-ml', ...]
-        $cap_ok  = false;
-        $tipo_ok = ( '' === $tipo_slug );
-        $tiene_eje_tipo = false;
-
-        foreach ( $attrs as $akey => $aval ) {
-            if ( vaporis_norm_size($aval) === $target ) $cap_ok = true;
-            if ( false !== strpos( strtolower($akey), VAPORIS_ATTR_TIPO ) ) {
-                $tiene_eje_tipo = true;
-                if ( '' !== $tipo_slug && sanitize_title($aval) === $tipo_slug ) $tipo_ok = true;
-            }
-        }
-        // Si el tipo no es eje de variación de este aroma, no lo exigimos aquí.
-        if ( '' !== $tipo_slug && ! $tiene_eje_tipo ) $tipo_ok = true;
-
-        if ( $cap_ok && $tipo_ok ) return $variation_id;
+    foreach ( $map[$aroma_id] as $v ) {
+        $cap_ok = in_array($target, $v['norms'], true);
+        // Si el tipo no es eje de variación de este aroma, no lo exigimos.
+        $tipo_ok = ( '' === $tipo_slug ) || ! $v['eje_tipo'] || ( $v['tipo'] === $tipo_slug );
+        if ( $cap_ok && $tipo_ok ) return $v['id'];
     }
     return 0;
 }
@@ -158,6 +177,7 @@ add_action('save_post_product', 'vaporis_clear_aromas_cache');
 add_action('delete_post', 'vaporis_clear_aromas_cache');
 function vaporis_clear_aromas_cache() {
     delete_transient('vaporis_aromas_list');
+    delete_transient('vaporis_variation_map');
 }
 
 
