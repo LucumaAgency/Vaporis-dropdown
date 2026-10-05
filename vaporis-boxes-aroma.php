@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.7.3
+ * Version:     1.8.0
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -936,4 +936,19 @@ function vaporis_catalogo_admin_page() {
       </form>
     </div>
     <?php
+}
+
+
+/* -------------------------------------------------------------------------
+ * 12) ENVÍO: cuando el envío gratuito está disponible (pedido ≥ mínimo de la
+ *     zona), ocultar las tarifas pagadas para que el cliente no tenga que
+ *     elegir. Zonas y mínimos se siguen configurando en WooCommerce → Envío.
+ * ---------------------------------------------------------------------- */
+add_filter('woocommerce_package_rates', 'vaporis_solo_envio_gratis', 100, 2);
+function vaporis_solo_envio_gratis($rates, $package) {
+    $gratis = [];
+    foreach ( $rates as $id => $rate ) {
+        if ( 'free_shipping' === $rate->get_method_id() ) $gratis[$id] = $rate;
+    }
+    return $gratis ? $gratis : $rates;
 }
