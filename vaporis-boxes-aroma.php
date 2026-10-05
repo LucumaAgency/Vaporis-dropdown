@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.7.0
+ * Version:     1.7.1
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -761,6 +761,7 @@ function vaporis_catalogo_defaults() {
         'vaporis_catalogo_barra'    => 'Catálogo en actualización: compras en línea pausadas temporalmente. Consúltanos por WhatsApp.',
         'vaporis_catalogo_wa1'      => '51960950308',
         'vaporis_catalogo_wa2'      => '51983122275',
+        'vaporis_catalogo_offset'   => '100', // px de separación superior (header fijo)
     ];
 }
 
@@ -879,7 +880,7 @@ add_action('wp_head', 'vaporis_catalogo_css', 99);
 function vaporis_catalogo_css() {
     if ( ! vaporis_catalogo_on() ) return;
     echo '<style id="vaporis-catalogo">
-.vaporis-catalogo-barra{background:#1a1a1a;color:#fff;text-align:center;font-size:14px;line-height:1.4;padding:10px 16px}
+.vaporis-catalogo-barra{margin-top:' . (int) vaporis_catalogo_opt('vaporis_catalogo_offset') . 'px;position:relative;z-index:1;background:#1a1a1a;color:#fff;text-align:center;font-size:14px;line-height:1.4;padding:10px 16px}
 .vaporis-catalogo-barra a{color:#25D366;font-weight:600;text-decoration:none;margin-left:6px}
 .vaporis-catalogo-aviso{border:1px solid #e5e5e5;border-radius:12px;padding:20px;margin:16px 0 24px;background:#fafafa}
 .vaporis-catalogo-aviso strong{display:block;font-size:17px;margin-bottom:6px}
@@ -911,6 +912,7 @@ function vaporis_catalogo_admin_page() {
           <tr><th>Mensaje en la ficha</th><td><textarea class="large-text" rows="3" name="vaporis_catalogo_mensaje"><?php echo esc_textarea( vaporis_catalogo_opt('vaporis_catalogo_mensaje') ); ?></textarea></td></tr>
           <tr><th>Texto de la barra superior</th><td><textarea class="large-text" rows="2" name="vaporis_catalogo_barra"><?php echo esc_textarea( vaporis_catalogo_opt('vaporis_catalogo_barra') ); ?></textarea></td></tr>
           <tr><th>WhatsApp 1 (con 51)</th><td><input type="text" name="vaporis_catalogo_wa1" value="<?php echo esc_attr( vaporis_catalogo_opt('vaporis_catalogo_wa1') ); ?>"></td></tr>
+          <tr><th>Separación superior de la barra (px)</th><td><input type="number" min="0" name="vaporis_catalogo_offset" value="<?php echo esc_attr( vaporis_catalogo_opt('vaporis_catalogo_offset') ); ?>"> <span class="description">Para que el header fijo no la tape.</span></td></tr>
           <tr><th>WhatsApp 2 (con 51)</th><td><input type="text" name="vaporis_catalogo_wa2" value="<?php echo esc_attr( vaporis_catalogo_opt('vaporis_catalogo_wa2') ); ?>"></td></tr>
         </table>
         <?php submit_button('Guardar'); ?>
