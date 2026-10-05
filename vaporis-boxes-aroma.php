@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.6.0
+ * Version:     1.7.0
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -737,4 +737,184 @@ function vaporis_strip_wc_blocks_assets() {
     foreach ( (array) wp_styles()->queue as $handle ) {
         if ( $es_bloque($handle) ) wp_dequeue_style($handle);
     }
+}
+
+
+/* -------------------------------------------------------------------------
+ * 11) MODO CATÁLOGO (pausa de ventas) — v1.7.0
+ *     Con el interruptor activo, la tienda sigue visible (SEO intacto) pero
+ *     no se puede comprar: sin botón de carrito, precios ocultos (opcional),
+ *     carrito/checkout redirigen a la tienda y se muestra un aviso con
+ *     botones de WhatsApp. Los usuarios con permiso de gestionar la tienda
+ *     siguen viendo todo normal para revisar los cambios antes de reabrir.
+ *
+ *     Interruptor: WooCommerce → Modo catálogo (admin), o vía REST:
+ *       PUT /wp-json/wp/v2/settings  {"vaporis_catalogo_activo":"yes"}
+ * ---------------------------------------------------------------------- */
+
+function vaporis_catalogo_defaults() {
+    return [
+        'vaporis_catalogo_activo'   => 'no',
+        'vaporis_catalogo_precios'  => 'yes', // ocultar precios
+        'vaporis_catalogo_titulo'   => 'Estamos actualizando nuestro catálogo',
+        'vaporis_catalogo_mensaje'  => 'Las compras en línea están pausadas por unos días mientras renovamos precios y stock. Escríbenos por WhatsApp y te atendemos al instante.',
+        'vaporis_catalogo_barra'    => 'Catálogo en actualización: compras en línea pausadas temporalmente. Consúltanos por WhatsApp.',
+        'vaporis_catalogo_wa1'      => '51960950308',
+        'vaporis_catalogo_wa2'      => '51983122275',
+    ];
+}
+
+add_action('init', 'vaporis_catalogo_register_settings');
+function vaporis_catalogo_register_settings() {
+    foreach ( vaporis_catalogo_defaults() as $key => $default ) {
+        register_setting('vaporis_catalogo', $key, [
+            'type'              => 'string',
+            'default'           => $default,
+            'show_in_rest'      => true,
+            'sanitize_callback' => ( 'vaporis_catalogo_mensaje' === $key || 'vaporis_catalogo_barra' === $key )
+                                   ? 'sanitize_textarea_field' : 'sanitize_text_field',
+        ]);
+    }
+}
+
+function vaporis_catalogo_opt($key) {
+    $d = vaporis_catalogo_defaults();
+    $v = get_option($key, $d[$key]);
+    return ( '' === $v || null === $v ) ? $d[$key] : $v;
+}
+
+/** ¿Aplicar el modo catálogo a este visitante? */
+function vaporis_catalogo_on() {
+    static $on = null;
+    if ( null !== $on ) return $on;
+    $on = ( 'yes' === vaporis_catalogo_opt('vaporis_catalogo_activo') )
+        && ! is_admin()
+        && ! current_user_can('manage_woocommerce')
+        && ! ( defined('REST_REQUEST') && REST_REQUEST );
+    return $on;
+}
+
+function vaporis_catalogo_wa_links() {
+    $out = [];
+    foreach ( ['vaporis_catalogo_wa1', 'vaporis_catalogo_wa2'] as $k ) {
+        $n = preg_replace('/\D+/', '', (string) vaporis_catalogo_opt($k));
+        if ( $n ) $out[] = $n;
+    }
+    return $out;
+}
+
+/** Bloque de aviso + botones (ficha de producto y, si se pide, tienda). */
+function vaporis_catalogo_aviso_html($con_titulo = true) {
+    $html  = '<div class="vaporis-catalogo-aviso">';
+    if ( $con_titulo ) $html .= '<strong>' . esc_html( vaporis_catalogo_opt('vaporis_catalogo_titulo') ) . '</strong>';
+    $html .= '<p>' . esc_html( vaporis_catalogo_opt('vaporis_catalogo_mensaje') ) . '</p><div class="vaporis-catalogo-botones">';
+    foreach ( vaporis_catalogo_wa_links() as $i => $n ) {
+        $txt = ( 0 === $i ) ? 'Consultar por WhatsApp' : 'WhatsApp sede 2';
+        $html .= sprintf('<a class="button vaporis-catalogo-wa" target="_blank" rel="noopener" href="https://wa.me/%s?text=%s">%s</a>',
+            esc_attr($n), rawurlencode('Hola, quiero consultar por un producto de Vaporis'), esc_html($txt));
+    }
+    return $html . '</div></div>';
+}
+
+/* Ficha de producto: quitamos el formulario de compra (y con él el dropdown de aroma) y ponemos el aviso. */
+add_action('wp', 'vaporis_catalogo_single', 20);
+function vaporis_catalogo_single() {
+    if ( ! vaporis_catalogo_on() ) return;
+    remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_add_to_cart', 30);
+    add_action('woocommerce_single_product_summary', function () { echo vaporis_catalogo_aviso_html(); }, 30);
+    if ( 'yes' === vaporis_catalogo_opt('vaporis_catalogo_precios') ) {
+        remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_price', 10);
+    }
+}
+
+/* Nada es comprable → Woo oculta botones en todas las plantillas (incluidas las de Bricks) y vacía el carrito. */
+add_filter('woocommerce_is_purchasable',           'vaporis_catalogo_no_purchasable', 99);
+add_filter('woocommerce_variation_is_purchasable', 'vaporis_catalogo_no_purchasable', 99);
+function vaporis_catalogo_no_purchasable($purchasable) {
+    return vaporis_catalogo_on() ? false : $purchasable;
+}
+
+/* Precios ocultos (opcional). */
+add_filter('woocommerce_get_price_html', 'vaporis_catalogo_price_html', 99, 2);
+function vaporis_catalogo_price_html($html, $product) {
+    if ( ! vaporis_catalogo_on() || 'yes' !== vaporis_catalogo_opt('vaporis_catalogo_precios') ) return $html;
+    return '<span class="vaporis-catalogo-precio">Precio en actualización</span>';
+}
+
+/* Botón del listado → "Consultar" a la ficha. */
+add_filter('woocommerce_loop_add_to_cart_link', 'vaporis_catalogo_loop_button', 99, 2);
+function vaporis_catalogo_loop_button($html, $product) {
+    if ( ! vaporis_catalogo_on() || ! $product ) return $html;
+    return sprintf('<a href="%s" class="button">%s</a>', esc_url($product->get_permalink()), esc_html__('Ver detalle', 'vaporis'));
+}
+
+/* Bloqueo defensivo del alta al carrito (POST/AJAX directos). */
+add_filter('woocommerce_add_to_cart_validation', 'vaporis_catalogo_block_add', 1);
+function vaporis_catalogo_block_add($passed) {
+    if ( ! vaporis_catalogo_on() ) return $passed;
+    wc_add_notice( vaporis_catalogo_opt('vaporis_catalogo_mensaje'), 'error' );
+    return false;
+}
+
+/* Carrito y checkout → tienda. */
+add_action('template_redirect', 'vaporis_catalogo_redirect', 5);
+function vaporis_catalogo_redirect() {
+    if ( ! vaporis_catalogo_on() ) return;
+    if ( ( function_exists('is_cart') && is_cart() ) || ( function_exists('is_checkout') && is_checkout() && ! is_wc_endpoint_url('order-received') ) ) {
+        wp_safe_redirect( wc_get_page_permalink('shop') ?: home_url('/') );
+        exit;
+    }
+}
+
+/* Barra superior en todo el sitio + estilos. */
+add_action('wp_body_open', 'vaporis_catalogo_barra');
+function vaporis_catalogo_barra() {
+    if ( ! vaporis_catalogo_on() ) return;
+    $wa = vaporis_catalogo_wa_links();
+    echo '<div class="vaporis-catalogo-barra">' . esc_html( vaporis_catalogo_opt('vaporis_catalogo_barra') );
+    if ( $wa ) printf(' <a target="_blank" rel="noopener" href="https://wa.me/%s">Escríbenos →</a>', esc_attr($wa[0]));
+    echo '</div>';
+}
+add_action('wp_head', 'vaporis_catalogo_css', 99);
+function vaporis_catalogo_css() {
+    if ( ! vaporis_catalogo_on() ) return;
+    echo '<style id="vaporis-catalogo">
+.vaporis-catalogo-barra{background:#1a1a1a;color:#fff;text-align:center;font-size:14px;line-height:1.4;padding:10px 16px}
+.vaporis-catalogo-barra a{color:#25D366;font-weight:600;text-decoration:none;margin-left:6px}
+.vaporis-catalogo-aviso{border:1px solid #e5e5e5;border-radius:12px;padding:20px;margin:16px 0 24px;background:#fafafa}
+.vaporis-catalogo-aviso strong{display:block;font-size:17px;margin-bottom:6px}
+.vaporis-catalogo-aviso p{margin:0 0 14px;font-size:14px;line-height:1.5;color:#444}
+.vaporis-catalogo-botones{display:flex;gap:10px;flex-wrap:wrap}
+.vaporis-catalogo-aviso .button.vaporis-catalogo-wa{background:#25D366;color:#fff;border:0}
+.vaporis-catalogo-aviso .button.vaporis-catalogo-wa:hover{background:#1ebe5a}
+.vaporis-catalogo-precio{font-size:14px;color:#777;font-style:italic}
+</style>';
+}
+
+/* Página de ajustes: WooCommerce → Modo catálogo. */
+add_action('admin_menu', function () {
+    add_submenu_page('woocommerce', 'Modo catálogo', 'Modo catálogo', 'manage_woocommerce', 'vaporis-catalogo', 'vaporis_catalogo_admin_page');
+});
+function vaporis_catalogo_admin_page() {
+    $activo = vaporis_catalogo_opt('vaporis_catalogo_activo');
+    ?>
+    <div class="wrap">
+      <h1>Modo catálogo (pausa de ventas)</h1>
+      <p>Estado actual: <strong style="color:<?php echo 'yes' === $activo ? '#b32d2e' : '#00a32a'; ?>"><?php echo 'yes' === $activo ? 'ACTIVO — la web no vende' : 'Inactivo — la web vende normal'; ?></strong>.
+         Los administradores siempre ven la tienda normal; para ver cómo lo ve un cliente, abre el sitio en una ventana de incógnito.</p>
+      <form method="post" action="options.php">
+        <?php settings_fields('vaporis_catalogo'); ?>
+        <table class="form-table">
+          <tr><th>Pausar ventas</th><td><label><input type="checkbox" name="vaporis_catalogo_activo" value="yes" <?php checked('yes', $activo); ?>> Activar modo catálogo</label></td></tr>
+          <tr><th>Ocultar precios</th><td><label><input type="checkbox" name="vaporis_catalogo_precios" value="yes" <?php checked('yes', vaporis_catalogo_opt('vaporis_catalogo_precios')); ?>> Mostrar "Precio en actualización" en lugar del precio</label></td></tr>
+          <tr><th>Título del aviso</th><td><input type="text" class="regular-text" name="vaporis_catalogo_titulo" value="<?php echo esc_attr( vaporis_catalogo_opt('vaporis_catalogo_titulo') ); ?>"></td></tr>
+          <tr><th>Mensaje en la ficha</th><td><textarea class="large-text" rows="3" name="vaporis_catalogo_mensaje"><?php echo esc_textarea( vaporis_catalogo_opt('vaporis_catalogo_mensaje') ); ?></textarea></td></tr>
+          <tr><th>Texto de la barra superior</th><td><textarea class="large-text" rows="2" name="vaporis_catalogo_barra"><?php echo esc_textarea( vaporis_catalogo_opt('vaporis_catalogo_barra') ); ?></textarea></td></tr>
+          <tr><th>WhatsApp 1 (con 51)</th><td><input type="text" name="vaporis_catalogo_wa1" value="<?php echo esc_attr( vaporis_catalogo_opt('vaporis_catalogo_wa1') ); ?>"></td></tr>
+          <tr><th>WhatsApp 2 (con 51)</th><td><input type="text" name="vaporis_catalogo_wa2" value="<?php echo esc_attr( vaporis_catalogo_opt('vaporis_catalogo_wa2') ); ?>"></td></tr>
+        </table>
+        <?php submit_button('Guardar'); ?>
+      </form>
+    </div>
+    <?php
 }
