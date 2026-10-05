@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.7.2
+ * Version:     1.7.3
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -823,10 +823,14 @@ function vaporis_catalogo_single() {
     if ( ! vaporis_catalogo_on() ) return;
     remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_add_to_cart', 30);
     add_action('woocommerce_single_product_summary', 'vaporis_catalogo_print_aviso', 30);
-    // Bricks (y las plantillas de productos variables) pintan el formulario directamente:
-    // lo descartamos entero con un buffer y mostramos el aviso en su lugar.
-    add_action('woocommerce_before_add_to_cart_form', function () { ob_start(); }, 0);
-    add_action('woocommerce_after_add_to_cart_form', function () { ob_end_clean(); vaporis_catalogo_print_aviso(); }, 999);
+    // Bricks llama a woocommerce_template_single_add_to_cart() directamente, que a su vez
+    // dispara woocommerce_{tipo}_add_to_cart. Ahí reemplazamos la plantilla por el aviso
+    // (vale para simples y variables; la plantilla simple ni siquiera llega a sus ganchos
+    // internos cuando el producto no es comprable).
+    foreach ( ['simple', 'variable', 'grouped', 'external'] as $t ) {
+        remove_action("woocommerce_{$t}_add_to_cart", "woocommerce_{$t}_add_to_cart", 30);
+        add_action("woocommerce_{$t}_add_to_cart", 'vaporis_catalogo_print_aviso', 30);
+    }
     if ( 'yes' === vaporis_catalogo_opt('vaporis_catalogo_precios') ) {
         remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_price', 10);
     }
