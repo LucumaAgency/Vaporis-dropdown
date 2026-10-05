@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.7.1
+ * Version:     1.7.2
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -822,10 +822,23 @@ add_action('wp', 'vaporis_catalogo_single', 20);
 function vaporis_catalogo_single() {
     if ( ! vaporis_catalogo_on() ) return;
     remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_add_to_cart', 30);
-    add_action('woocommerce_single_product_summary', function () { echo vaporis_catalogo_aviso_html(); }, 30);
+    add_action('woocommerce_single_product_summary', 'vaporis_catalogo_print_aviso', 30);
+    // Bricks (y las plantillas de productos variables) pintan el formulario directamente:
+    // lo descartamos entero con un buffer y mostramos el aviso en su lugar.
+    add_action('woocommerce_before_add_to_cart_form', function () { ob_start(); }, 0);
+    add_action('woocommerce_after_add_to_cart_form', function () { ob_end_clean(); vaporis_catalogo_print_aviso(); }, 999);
     if ( 'yes' === vaporis_catalogo_opt('vaporis_catalogo_precios') ) {
         remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_price', 10);
     }
+}
+
+/** Imprime el aviso una sola vez por producto aunque lo pidan varios ganchos. */
+function vaporis_catalogo_print_aviso() {
+    static $done = [];
+    $id = get_the_ID();
+    if ( isset($done[$id]) ) return;
+    $done[$id] = true;
+    echo vaporis_catalogo_aviso_html();
 }
 
 /* Nada es comprable → Woo oculta botones en todas las plantillas (incluidas las de Bricks) y vacía el carrito. */
