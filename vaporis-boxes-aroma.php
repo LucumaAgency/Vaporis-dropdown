@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Vaporis · Boxes y Aroma Incluido
- * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.8.1
+ * Plugin Name: Vaporis · Difusores y Aroma Incluido
+ * Description: Dropdown de aroma incluido en los difusores que lo traen (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones.
+ * Version:     1.9.0
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -23,9 +23,19 @@ if ( ! defined('VAPORIS_ATTR_COLOR') ) define('VAPORIS_ATTR_COLOR', 'pa_color');
 /** Taxonomía del atributo "Tipo de aroma" (familias: Todos / Solo Scent) */
 if ( ! defined('VAPORIS_ATTR_TIPO') ) define('VAPORIS_ATTR_TIPO', 'pa_tipo-de-aroma');
 
-/** Helper: ¿este producto es un box? */
+/**
+ * Helper: ¿este producto trae aroma incluido?
+ *
+ * Desde v1.9.0 ya no se decide por la categoría «boxes» (desaparece: todo el
+ * catálogo se llama «Difusor <MODELO>»), sino por el meta ACF que fija la
+ * capacidad del aroma incluido. Un difusor «solo equipo» lo tiene vacío, así
+ * que no muestra el desplegable. La constante VAPORIS_CAT_BOX se mantiene como
+ * respaldo para tiendas donde la categoría siga existiendo.
+ */
 function vaporis_es_box($product_id) {
-    return has_term(VAPORIS_CAT_BOX, 'product_cat', $product_id);
+    if ( '' !== (string) get_post_meta($product_id, VAPORIS_META_INCLUIDO_SIZE, true) ) return true;
+    return taxonomy_exists('product_cat') && term_exists(VAPORIS_CAT_BOX, 'product_cat')
+        ? has_term(VAPORIS_CAT_BOX, 'product_cat', $product_id) : false;
 }
 
 /** Helper: tipos de aroma (slugs) que admite este box. Vacío = sin restricción. */
