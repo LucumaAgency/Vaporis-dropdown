@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Boxes y Aroma Incluido
  * Description: Dropdown de aroma incluido en boxes (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones de los boxes variables.
- * Version:     1.8.0
+ * Version:     1.8.1
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -951,4 +951,21 @@ function vaporis_solo_envio_gratis($rates, $package) {
         if ( 'free_shipping' === $rate->get_method_id() ) $gratis[$id] = $rate;
     }
     return $gratis ? $gratis : $rates;
+}
+
+
+/* -------------------------------------------------------------------------
+ * 13) ORDEN POR COBERTURA: difusores y boxes se listan de menor a mayor
+ *     cobertura. El dato vive en `menu_order` de cada producto
+ *     (= cobertura en m²; empates desempatados por precio). WooCommerce ya
+ *     usa menu_order en categorías/tienda; aquí se fuerza también en los
+ *     elementos "Products" de Bricks (que por defecto ordenan por fecha).
+ *     Los elementos que listan aromas no se tocan.
+ * ---------------------------------------------------------------------- */
+add_filter('bricks/woocommerce/products_query_vars', 'vaporis_orden_cobertura_bricks', 10, 3);
+function vaporis_orden_cobertura_bricks($query_vars, $settings, $element_id) {
+    if ( stripos(wp_json_encode($settings), 'aroma') !== false ) return $query_vars;
+    $query_vars['orderby'] = ['menu_order' => 'ASC', 'title' => 'ASC'];
+    unset($query_vars['order']);
+    return $query_vars;
 }
