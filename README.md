@@ -78,3 +78,9 @@ aromas) y sus imágenes. Material de referencia, no forma parte del plugin.
 - El aviso de stock del carrito suma las unidades del mismo aroma entre líneas.
 - Pedido: `_aromas_incluidos_ids` con todos los IDs cuando hay más de uno.
 - Compatible con carritos creados con v1.8.1 (no duplica líneas existentes).
+
+## v1.10.1 (2026-11-04)
+
+- Swatches de color: solo se dibujan los colores asignados al producto (como el
+  `<select>` de WooCommerce). Antes aparecía también el color de una variación
+  privada (p. ej. Balance Negro oculto hasta tener foto).

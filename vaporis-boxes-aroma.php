@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Difusores y Aroma Incluido
  * Description: Dropdown de aroma incluido en los difusores que lo traen (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones.
- * Version:     1.10.0
+ * Version:     1.10.1
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -697,6 +697,13 @@ function vaporis_color_swatches($html, $args) {
     if ( $product && taxonomy_exists($taxonomy) ) {
         $terms = wc_get_product_terms($product->get_id(), $taxonomy, ['fields' => 'all']);
         foreach ( $terms as $t ) $labels[$t->slug] = $t->name;
+    }
+
+    // Solo los colores asignados al producto (igual que el <select> de WC). WC pasa
+    // también los de variaciones privadas: así un color oculto no se dibuja.
+    if ( $labels ) {
+        $options = array_values( array_filter( $options, function ($slug) use ($labels) { return isset($labels[$slug]); } ) );
+        if ( empty($options) ) return $html;
     }
 
     $sw = '<div class="vaporis-swatches" data-attribute_name="' . esc_attr($name) . '">';
