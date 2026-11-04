@@ -63,3 +63,18 @@ CSVs de importación y exports de ACF usados para montar productos (boxes y
 aromas) y sus imágenes. Material de referencia, no forma parte del plugin.
 
 > Las imágenes de difusores (~50 MB) no se versionan (ver `.gitignore`).
+
+## v1.10.0 (2026-11-04)
+
+- **Varios aromas incluidos por producto.** Meta nuevo `cantidad_aromas_incluidos`
+  (vacío = 1, máximo 6). Con 2 la ficha muestra 2 desplegables ("Elige tu aroma
+  incluido 1 de 2"…) y el carrito crea una línea a precio 0 por cada aroma, con
+  la misma cantidad que el box. Se puede elegir el mismo aroma dos veces.
+  Caso de uso: Box Dual Prestige (2 aromas de 150 mL).
+- **El aroma incluido se decide solo por el meta `cantidad_de_aroma_de_regalo`.**
+  Se quitó el respaldo por la categoría `boxes`: un producto de esa categoría sin
+  capacidad configurada (p. ej. Road Trip, con aromas fijos) se compra normal,
+  sin desplegable ni validación. Incluye lo de v1.9.0 (no desplegada).
+- El aviso de stock del carrito suma las unidades del mismo aroma entre líneas.
+- Pedido: `_aromas_incluidos_ids` con todos los IDs cuando hay más de uno.
+- Compatible con carritos creados con v1.8.1 (no duplica líneas existentes).
