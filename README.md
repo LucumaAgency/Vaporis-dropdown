@@ -84,3 +84,10 @@ aromas) y sus imágenes. Material de referencia, no forma parte del plugin.
 - Swatches de color: solo se dibujan los colores asignados al producto (como el
   `<select>` de WooCommerce). Antes aparecía también el color de una variación
   privada (p. ej. Balance Negro oculto hasta tener foto).
+
+## v1.10.2 (2026-11-04)
+
+- El desplegable y la validación del aroma incluido ignoran variaciones no
+  publicadas. Antes, Lavanda Francesa 150 mL (privada a propósito) se ofrecía en
+  todos los boxes de 150 mL y, al elegirla, el box entraba al carrito sin la línea
+  del aroma (no descontaba stock).

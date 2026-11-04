@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Difusores y Aroma Incluido
  * Description: Dropdown de aroma incluido en los difusores que lo traen (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones.
- * Version:     1.10.1
+ * Version:     1.10.2
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -248,7 +248,8 @@ function lucia_aroma_incluido_dropdown() {
         $variation_id = vaporis_find_aroma_variation($aroma_id, $incluido_size);
         if ( ! $variation_id ) continue;
         $variation = wc_get_product($variation_id);
-        if ( ! $variation || ! $variation->is_in_stock() ) continue;
+        // Solo medidas activas: una variación privada (p. ej. Lavanda 150 mL desactivada) no se ofrece.
+        if ( ! $variation || 'publish' !== $variation->get_status() || ! $variation->is_in_stock() ) continue;
 
         $tipos = wp_get_post_terms($aroma_id, VAPORIS_ATTR_TIPO, ['fields' => 'slugs']);
         $options[$aroma_id] = [
@@ -351,6 +352,10 @@ function lucia_validate_aroma_incluido($passed, $product_id) {
             return false;
         }
         $variation = wc_get_product($variation_id);
+        if ( $variation && 'publish' !== $variation->get_status() ) {
+            wc_add_notice(__('Ese aroma no está disponible en la capacidad incluida de este box.', 'vaporis'), 'error');
+            return false;
+        }
         if ( ! $variation || ! $variation->is_in_stock() || ! $variation->has_enough_stock($cuantos) ) {
             wc_add_notice(__('El aroma seleccionado está agotado. Elige otro, por favor.', 'vaporis'), 'error');
             return false;
