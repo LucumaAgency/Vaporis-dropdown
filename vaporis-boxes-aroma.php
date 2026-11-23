@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Difusores y Aroma Incluido
  * Description: Dropdown de aroma incluido en los difusores que lo traen (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones.
- * Version:     1.10.2
+ * Version:     1.10.3
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -26,6 +26,14 @@ if ( ! defined('VAPORIS_ATTR_COLOR') ) define('VAPORIS_ATTR_COLOR', 'pa_color');
 
 /** Taxonomía del atributo "Tipo de aroma" (familias: Todos / Solo Scent) */
 if ( ! defined('VAPORIS_ATTR_TIPO') ) define('VAPORIS_ATTR_TIPO', 'pa_tipo-de-aroma');
+
+/** Meta del aroma: '1' = se vende normal, pero no se puede elegir como aroma incluido (liquidación). */
+if ( ! defined('VAPORIS_META_NO_INCLUIDO') ) define('VAPORIS_META_NO_INCLUIDO', '_vaporis_no_incluido');
+
+/** Helper: ¿este aroma está excluido de la elección de aroma incluido? */
+function vaporis_aroma_no_incluible($aroma_id) {
+    return '1' === (string) get_post_meta($aroma_id, VAPORIS_META_NO_INCLUIDO, true);
+}
 
 /**
  * Helper: ¿este producto trae aroma incluido?
@@ -244,6 +252,7 @@ function lucia_aroma_incluido_dropdown() {
     // Aromas con la capacidad del box y en stock. data-tipo permite el filtro JS.
     $options = [];
     foreach ( $aromas as $aroma_id ) {
+        if ( vaporis_aroma_no_incluible($aroma_id) ) continue; // liquidación: no se ofrece como incluido
         if ( ! $tipo_por_variacion && ! vaporis_aroma_encaja_tipo($aroma_id, $box_tipos) ) continue;
         $variation_id = vaporis_find_aroma_variation($aroma_id, $incluido_size);
         if ( ! $variation_id ) continue;
@@ -338,6 +347,11 @@ function lucia_validate_aroma_incluido($passed, $product_id) {
     foreach ( $veces as $aroma_id => $cuantos ) {
         if ( ! vaporis_es_aroma($aroma_id) ) {
             wc_add_notice(__('El aroma seleccionado no es válido.', 'vaporis'), 'error');
+            return false;
+        }
+        // Liquidación: se compra aparte, nunca como aroma incluido (aunque manipulen el formulario).
+        if ( vaporis_aroma_no_incluible($aroma_id) ) {
+            wc_add_notice(__('Ese aroma no está disponible como aroma incluido. Elige otro, por favor.', 'vaporis'), 'error');
             return false;
         }
         // El aroma debe pertenecer al tipo que exige este box (fijo o el elegido en la variación).
