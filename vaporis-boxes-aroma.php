@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Vaporis · Difusores y Aroma Incluido
  * Description: Dropdown de aroma incluido en los difusores que lo traen (línea a precio 0 con control de stock, filtrado por tipo de aroma y capacidad) y círculos de color (swatches) para las variaciones.
- * Version:     1.10.3
+ * Version:     1.10.4
  * Author:      Lucuma Agency
  * Text Domain: vaporis
  * Requires Plugins: woocommerce
@@ -1010,6 +1010,20 @@ function vaporis_catalogo_css() {
 .vaporis-catalogo-aviso .button.vaporis-catalogo-wa{background:#25D366;color:#fff;border:0}
 .vaporis-catalogo-aviso .button.vaporis-catalogo-wa:hover{background:#1ebe5a}
 .vaporis-catalogo-precio{font-size:14px;color:#777;font-style:italic}
+</style>';
+}
+
+/* Insignia Black Friday en /boxes/ (listado nativo de Woo, sin plantilla Bricks):
+   la muestran solo los productos con la etiqueta `cyber friday`. */
+add_action('wp_head', 'vaporis_insignia_boxes_css', 99);
+function vaporis_insignia_boxes_css() {
+    if ( ! function_exists('is_product_category') || ! is_product_category('boxes') ) return;
+    $img = wp_get_attachment_url(1447);
+    if ( ! $img ) return;
+    echo '<style id="vaporis-insignia-boxes">
+li.product.product_tag-cyber-friday{position:relative}
+li.product.product_tag-cyber-friday::after{content:"";position:absolute;top:8px;right:8px;width:64px;height:64px;background:url("' . esc_url($img) . '") center/contain no-repeat;z-index:3;pointer-events:none}
+@media(max-width:767px){li.product.product_tag-cyber-friday::after{width:48px;height:48px;top:6px;right:6px}}
 </style>';
 }
 
